@@ -1,0 +1,8 @@
+numpy 
+scipy 
+matplotlib 
+sympy
+gym 
+pybullet 
+pymoo
+jupyter
