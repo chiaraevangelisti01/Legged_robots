@@ -56,7 +56,7 @@ class HopfNetwork():
                 coupling_strength=1,     # coefficient to multiply coupling matrix
                 couple=True,             # whether oscillators should be coupled
                 time_step=0.001,         # time step 
-                ground_clearance=0.07,   # foot swing height 
+                ground_clearance=0.07,  # foot swing height 
                 ground_penetration=0.01, # foot stance penetration into ground 
                 robot_height=0.3,        # in nominal case (standing) 
                 des_step_len=0.05,       # desired step length 
@@ -103,10 +103,25 @@ class HopfNetwork():
     """ For coupling oscillators in phase space. 
     [TODO] update all coupling matrices
     """
-    self.PHI_trot = np.zeros((4,4))
-    self.PHI_walk = np.zeros((4,4))
-    self.PHI_bound = np.zeros((4,4))
-    self.PHI_pace = np.zeros((4,4))
+    self.PHI_trot = np.array([[0.0, 1.0, 1.0, 0.0],
+                              [1.0, 0.0, 0.0, 1.0],
+                              [1.0, 0.0, 0.0, 1.0],
+                              [0.0, 1.0, 1.0, 0.0]])*np.pi
+    
+    self.PHI_walk = np.array([[0.0, 1.0, 0.5, 1.5],
+                              [1.0, 0.0, 1.5, 0.5],
+                              [1.5, 0.5, 0.0, 1.0],
+                              [0.5, 1.5, 1.0, 0.0]])*np.pi
+    
+    self.PHI_bound = np.array([[0.0, 0.0, 1.0, 1.0],
+                              [0.0, 0.0, 1.0, 1.0],
+                              [1.0, 1.0, 0.0, 0.0],
+                              [1.0, 1.0, 0.0, 0.0]])*np.pi
+    
+    self.PHI_pace = np.array([[0.0, 1.0, 0.0, 1.0],
+                              [1.0, 0.0, 1.0, 0.0],
+                              [0.0, 1.0, 0.0, 1.0],
+                              [1.0, 0.0, 1.0, 0.0]])*np.pi
 
     if gait == "TROT":
       self.PHI = self.PHI_trot
@@ -130,8 +145,16 @@ class HopfNetwork():
       self._integrate_hopf_equations_rl()
     
     # map CPG variables to Cartesian foot xz positions (Equations 8, 9) 
-    x = np.zeros(4) # [TODO]
-    z = np.zeros(4) # [TODO]
+    # [TODO]
+    x = np.zeros(4)
+    x = - self._des_step_len * (self.X[0] * np.cos(self.X[1]))
+    # [TODO]
+    z = np.zeros(4)
+    for i in range(4):
+      if np.sin(self.X[1][i]) > 0:
+        z[i] = -self._robot_height + self._ground_clearance * np.sin(self.X[1][i])
+      else:
+        z[i] = -self._robot_height + self._ground_penetration * np.sin(self.X[1][i])
 
     # scale x by step length
     if not self.use_RL:
@@ -154,21 +177,29 @@ class HopfNetwork():
     # loop through each leg's oscillator
     for i in range(4):
       # get r_i, theta_i from X
-      r, theta = 0, 0 # [TODO]
+      r, theta = X[0][i], X[1][i] # [TODO]
       # compute r_dot (Equation 6)
-      r_dot = 0 # [TODO]
+      r_dot = self._alpha * (self._mu - r**2) * r # [TODO]
       # determine whether oscillator i is in swing or stance phase to set natural frequency omega_swing or omega_stance (see Section 3)
-      theta_dot = 0 # [TODO]
+      if np.sin(theta) >= 0:
+        theta_dot = self._omega_swing # [TODO]
+      else:
+        theta_dot = self._omega_stance
 
       # loop through other oscillators to add coupling (Equation 7)
       if self._couple:
-        theta_dot += 0 # [TODO]
+        # theta_dot += 0 
+        # [TODO]
+        for j in range(4):
+          r_j, theta_j = X[0][j], X[1][j]
+          theta_dot += r_j * self._coupling_strength * np.sin(theta_j - theta - self.PHI[i, j])
 
       # set X_dot[:,i]
       X_dot[:,i] = [r_dot, theta_dot]
 
     # integrate 
     self.X = np.zeros((2,4)) # [TODO]
+    self.X = X + (X_dot_prev + X_dot) * self._dt / 2
     self.X_dot = X_dot
     # mod phase variables to keep between 0 and 2pi
     self.X[1,:] = self.X[1,:] % (2*np.pi)
@@ -212,9 +243,15 @@ class HopfNetwork():
       # get r_i, theta_i from X
       r, theta = X[:,i]
       # amplitude (use mu from RL, i.e. self._mu_rl[i])
-      r_dot = 0  # [TODO]
+      r_dot = self._alpha * (self._mu_rl - r**2) * r  # [TODO]
       # phase (use omega from RL, i.e. self._omega_rl[i])
       theta_dot = 0 # [TODO]
+      if self._couple:
+        theta_dot += self._omega_rl
+        for j in range(4):
+          r_j, theta_j = X[0][j], X[1][j]
+          theta_dot += r_j * self._coupling_strength * np.sin(theta_j - theta - self.PHI[i, j])
+
 
       X_dot[:,i] = [r_dot, theta_dot]
 
