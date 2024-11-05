@@ -382,8 +382,8 @@ class Quadruped(object):
     """
     # rename links
     shoulder_length = self._robot_config.HIP_LINK_LENGTH
-    elbow_length = self._robot_config.THIGH_LINK_LENGTH
-    wrist_length =  self._robot_config.CALF_LINK_LENGTH
+    elbow_length    =  self._robot_config.THIGH_LINK_LENGTH
+    wrist_length    =  self._robot_config.CALF_LINK_LENGTH
     # coords
     x = xyz_coord[0]
     y = xyz_coord[1]

@@ -145,7 +145,10 @@ class HopfNetwork():
     # X: 0 is amplitude and 1 is the phase
     x = -1*self._des_step_len*self.X[0]*np.sin(self.X[1])# [TODO]
     # Dph is determine the phase of the legs: 0 if it is in the air (swing) and 1 if it is on the ground (stance)
-    Dph = int((self.X[1]%(2*np.pi))/np.pi)
+    Dph = np.zeros(4)
+    for k in range(4):
+      if np.sin(self.X[1,k]) > 0: Dph[k] = 0
+      else: Dph[k] = 1
     z = -1*self._robot_height + (self._ground_clearance*(np.ones(4)-Dph) + self._ground_penetration*Dph)*np.sin(self.X[1]) # [TODO]
     
 
@@ -237,10 +240,11 @@ class HopfNetwork():
       r_dot = self._alpha*(self._mu_rl[i] - r**2)*r # [TODO]
       # phase (use omega from RL, i.e. self._omega_rl[i])
       omega = self._omega_rl[i]
-      theta_dot = omega
+      theta_dot = omega # [TODO]
       # loop through other oscillators to add coupling (Equation 7)
-      for j in range(4):
-        theta_dot += self.X[0, j]*self.PHI[i, j]*np.sin(self.X[1, j] - self.X[1,i] - self.PHI[i,j])
+      if self._couple:
+        for j in range(4):
+          theta_dot += self.X[0, j]*self.PHI[i, j]*np.sin(self.X[1, j] - self.X[1,i] - self.PHI[i,j])
       
 
       X_dot[:,i] = [r_dot, theta_dot]
