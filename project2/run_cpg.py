@@ -31,7 +31,7 @@
 """ Run CPG """
 import time
 import numpy as np
-import matplotlib
+import matplotlib as plt
 
 # adapt as needed for your system
 # from sys import platform
@@ -64,10 +64,19 @@ env = QuadrupedGymEnv(render=True,              # visualize
 # initialize Hopf Network, supply gait
 cpg = HopfNetwork(time_step=TIME_STEP)
 
-TEST_STEPS = int(10 / (TIME_STEP))
+TEST_STEPS = int(10 / (TIME_STEP)/5)
 t = np.arange(TEST_STEPS)*TIME_STEP
 
 # [TODO] initialize data structures to save CPG and robot states
+r = []
+r_dot = []
+theta = []
+theta_dot = []
+desired_foot_positions = []
+actual_foot_positions = []
+desired_joint_angles = []
+actual_joint_angles = []
+energy = np.zeros((4, 3))
 
 
 ############## Sample Gains
@@ -78,14 +87,24 @@ kd=np.array([2,2,2])
 kpCartesian = np.diag([500]*3)
 kdCartesian = np.diag([20]*3)
 
+initial_x = env.robot.GetBasePosition()
+
 for j in range(TEST_STEPS):
   # initialize torque array to send to motors
+  
   action = np.zeros(12) 
   # get desired foot positions from CPG 
   xs,zs = cpg.update()
+
+  #store cpg data
+  r.append(cpg.get_r())
+  r_dot.append(cpg.get_dr())
+  theta.append(cpg.get_theta())
+  theta_dot.append(cpg.get_dtheta())
+
   # [TODO] get current motor angles and velocities for joint PD, see GetMotorAngles(), GetMotorVelocities() in quadruped.py
-  # q = env.robot.GetMotorAngles()
-  # dq = 
+  q = env.robot.GetMotorAngles().reshape((4,3))
+  dq = env.robot.GetMotorVelocities().reshape((4,3))
 
   # loop through desired foot positions and calculate torques
   for i in range(4):
@@ -93,27 +112,48 @@ for j in range(TEST_STEPS):
     tau = np.zeros(3)
     # get desired foot i pos (xi, yi, zi) in leg frame
     leg_xyz = np.array([xs[i],sideSign[i] * foot_y,zs[i]])
+    
     # call inverse kinematics to get corresponding joint angles (see ComputeInverseKinematics() in quadruped.py)
-    leg_q = np.zeros(3) # [TODO] 
+    leg_q = env.robot.ComputeInverseKinematics(i, leg_xyz) #np.zeros(3) # [TODO] 
+
     # Add joint PD contribution to tau for leg i (Equation 4)
-    tau += np.zeros(3) # [TODO] 
+    tau += kp*(leg_q -q[i]) + kd*(0 -dq[i])#np.zeros(3) # [TODO] 
 
     # add Cartesian PD contribution
     if ADD_CARTESIAN_PD:
       # Get current Jacobian and foot position in leg frame (see ComputeJacobianAndPosition() in quadruped.py)
-      # [TODO] 
+      J, pos = env.robot.ComputeJacobianAndPosition(i)# [TODO] 
       # Get current foot velocity in leg frame (Equation 2)
-      # [TODO] 
+      v = J@dq[i]# [TODO] 
       # Calculate torque contribution from Cartesian PD (Equation 5) [Make sure you are using matrix multiplications]
-      tau += np.zeros(3) # [TODO]
+      tau += J.T @(kpCartesian@(leg_xyz-pos).T +kdCartesian@(0-v).T)#np.zeros(3) # [TODO]
 
     # Set tau for legi in action vector
     action[3*i:3*i+3] = tau
+
+    #Store energy
+    energy[i] += np.abs(tau * dq[i]) * TIME_STEP
+
+
+    #store values
+    if i == 1:
+      desired_foot_positions.append(leg_xyz)
+      desired_joint_angles.append(leg_q)
+      actual_foot_positions.append(pos)
+      actual_joint_angles.append(q[i])
 
   # send torques to robot and simulate TIME_STEP seconds 
   env.step(action) 
 
   # [TODO] save any CPG or robot states
+
+final_x = env.robot.GetBasePosition()
+total_energy = np.sum(energy)  # Sum all energy used across joints
+distance_traveled = np.sqrt((final_x[0] - initial_x[0])**2 + (final_x[1] - initial_x[1])**2+ (final_x[2] - initial_x[2])**2)  # Euclidean distance traveled
+cot = total_energy / (np.sum(env.robot._total_mass_urdf) * 9.81 * distance_traveled)  # Cost of Transport
+
+print("Distance Traveled:", distance_traveled)
+print("Cost of Transport (COT):", cot)
 
 
 
@@ -125,3 +165,102 @@ for j in range(TEST_STEPS):
 # plt.plot(t,joint_pos[1,:], label='FR thigh')
 # plt.legend()
 # plt.show()
+
+
+# Ensure two gait cycles (adjust based on your specific CPG settings)
+num_cycles = 2
+cycle_steps = int(TEST_STEPS / num_cycles)
+t_cycle = t[:cycle_steps]
+
+# Convert lists to arrays for easier slicing and plotting
+r = np.array(r)
+r_dot = np.array(r_dot)
+theta = np.array(theta)
+theta_dot = np.array(theta_dot)
+
+# Define line properties
+line_width = 1  # thinner lines for clarity
+colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red']  # colors for different CPG states
+
+# Plot CPG states for each leg
+fig, axs = plt.subplots(4, 4, figsize=(15, 10))
+fig.suptitle("CPG States (r, θ, ˙r, ˙θ) for Trot Gait", fontsize=16)
+
+# Loop through each leg and plot the CPG states
+for i in range(4):
+    # Plot `r`
+    axs[0, i].plot(t_cycle, r[:cycle_steps, i], color=colors[0], label="r", linewidth=line_width)
+    axs[0, i].set_title(f"Leg {i+1} - r")
+    axs[0, i].legend()
+
+    # Plot `θ`
+    axs[1, i].plot(t_cycle, theta[:cycle_steps, i], color=colors[1], label="θ", linewidth=line_width)
+    axs[1, i].set_title(f"Leg {i+1} - θ")
+    axs[1, i].legend()
+
+    # Plot `˙r`
+    axs[2, i].plot(t_cycle, r_dot[:cycle_steps, i], color=colors[2], label="˙r", linewidth=line_width)
+    axs[2, i].set_title(f"Leg {i+1} - ˙r")
+    axs[2, i].legend()
+
+    # Plot `˙θ`
+    axs[3, i].plot(t_cycle, theta_dot[:cycle_steps, i], color=colors[3], label="˙θ", linewidth=line_width)
+    axs[3, i].set_title(f"Leg {i+1} - ˙θ")
+    axs[3, i].legend()
+
+# Adjust layout and display
+plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+plt.savefig("plotsCPGstates.png")
+plt.show()
+
+# Plot for desired vs actual foot positions and joint angles for leg 1
+fig, axs = plt.subplots(2, 3, figsize=(15, 8))
+fig.suptitle("Desired vs Actual Foot Positions and Joint Angles (Leg 1)", fontsize=16)
+
+# Define line colors for desired vs actual
+desired_color = 'tab:blue'
+actual_color = 'tab:orange'
+
+desired_foot_positions = np.array(desired_foot_positions)
+actual_foot_positions = np.array(actual_foot_positions)
+desired_joint_angles = np.array(desired_joint_angles)
+actual_joint_angles = np.array(actual_joint_angles)
+
+# Foot positions for leg 1 (x, y, z)
+axs[0, 0].plot(t, desired_foot_positions[:, 0], color=desired_color, label="Desired X", linewidth=line_width)
+axs[0, 0].plot(t, actual_foot_positions[:, 0], color=actual_color, linestyle='--', label="Actual X", linewidth=line_width)
+axs[0, 0].set_title("Foot Position X (Leg 1)")
+axs[0, 0].legend()
+
+axs[0, 1].plot(t, desired_foot_positions[:, 1], color=desired_color, label="Desired Y", linewidth=line_width)
+axs[0, 1].plot(t, actual_foot_positions[:, 1], color=actual_color, linestyle='--', label="Actual Y", linewidth=line_width)
+axs[0, 1].set_title("Foot Position Y (Leg 1)")
+axs[0, 1].legend()
+
+axs[0, 2].plot(t, desired_foot_positions[:, 2], color=desired_color, label="Desired Z", linewidth=line_width)
+axs[0, 2].plot(t, actual_foot_positions[:, 2], color=actual_color, linestyle='--', label="Actual Z", linewidth=line_width)
+axs[0, 2].set_title("Foot Position Z (Leg 1)")
+axs[0, 2].legend()
+
+# Joint angles for leg 1
+axs[1, 0].plot(t, desired_joint_angles[:, 0], color=desired_color, label="Desired Angle 1", linewidth=line_width)
+axs[1, 0].plot(t, actual_joint_angles[:, 0], color=actual_color, linestyle='--', label="Actual Angle 1", linewidth=line_width)
+axs[1, 0].set_title("Joint Angle 1 (Leg 1)")
+axs[1, 0].legend()
+
+axs[1, 1].plot(t, desired_joint_angles[:, 1], color=desired_color, label="Desired Angle 2", linewidth=line_width)
+axs[1, 1].plot(t, actual_joint_angles[:, 1], color=actual_color, linestyle='--', label="Actual Angle 2", linewidth=line_width)
+axs[1, 1].set_title("Joint Angle 2 (Leg 1)")
+axs[1, 1].legend()
+
+axs[1, 2].plot(t, desired_joint_angles[:, 2], color=desired_color, label="Desired Angle 3", linewidth=line_width)
+axs[1, 2].plot(t, actual_joint_angles[:, 2], color=actual_color, linestyle='--', label="Actual Angle 3", linewidth=line_width)
+axs[1, 2].set_title("Joint Angle 3 (Leg 1)")
+axs[1, 2].legend()
+
+plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+plt.savefig("plotsCPGtracking.png")
+plt.show()
+
+
+
