@@ -143,7 +143,7 @@ class HopfNetwork():
     
     # map CPG variables to Cartesian foot xz positions (Equations 8, 9) 
     # X: 0 is amplitude and 1 is the phase
-    x = -1*self._des_step_len*self.X[0]*np.sin(self.X[1])# [TODO]
+    x = -1*self._des_step_len*self.X[0]*np.cos(self.X[1])# [TODO]
     # Dph is determine the phase of the legs: 0 if it is in the air (swing) and 1 if it is on the ground (stance)
     Dph = np.zeros(4)
     for k in range(4):
