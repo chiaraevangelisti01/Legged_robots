@@ -46,7 +46,7 @@ from env.hopf_network import HopfNetwork
 from env.quadruped_gym_env import QuadrupedGymEnv
 
 
-ADD_CARTESIAN_PD = True
+ADD_CARTESIAN_PD = False
 TIME_STEP = 0.001
 foot_y = 0.0838 # this is the hip length 
 sideSign = np.array([-1, 1, -1, 1]) # get correct hip sign (body right is negative)
@@ -184,7 +184,7 @@ for i in range(4):
     tot_swing_time = np.sum(swing_durations[i]) if swing_durations[i] else 0
     tot_stance_time = np.sum(stance_durations[i]) if stance_durations[i] else 0
     print(f"Leg {i+1}: Average Swing Time = {avg_swing_time:.3f}s, Average Stance Time = {avg_stance_time:.3f}s")
-    print(f"Leg {i+1}: Average duty cycle =  {tot_stance_time/tot_swing_time:.3f}s")
+    print(f"Leg {i+1}: Average duty cycle =  {tot_stance_time/(tot_swing_time+tot_stance_time):.3f}s")
 
 print("Distance Traveled:", distance_traveled)
 print("Cost of Transport (COT):", cot)
