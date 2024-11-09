@@ -76,7 +76,12 @@ desired_foot_positions = []
 actual_foot_positions = []
 desired_joint_angles = []
 actual_joint_angles = []
+robot_base_velocities = []
 energy = np.zeros((4, 3))
+swing_durations = [[] for _ in range(4)]
+stance_durations = [[] for _ in range(4)]
+is_swing = [False] * 4  # Track if each leg is in swing phase
+phase_duration = [0.0] * 4  # Accumulate time in the current phase for each leg
 
 
 ############## Sample Gains
@@ -99,16 +104,35 @@ for j in range(TEST_STEPS):
   #store cpg data
   r.append(cpg.get_r())
   r_dot.append(cpg.get_dr())
-  theta.append(cpg.get_theta())
+  curr_theta = cpg.get_theta()
+  theta.append(curr_theta)
   theta_dot.append(cpg.get_dtheta())
 
   # [TODO] get current motor angles and velocities for joint PD, see GetMotorAngles(), GetMotorVelocities() in quadruped.py
   q = env.robot.GetMotorAngles().reshape((4,3))
   dq = env.robot.GetMotorVelocities().reshape((4,3))
+  robot_base_velocities.append(env.robot.GetBaseLinearVelocity())
 
   # loop through desired foot positions and calculate torques
   for i in range(4):
-    # initialize torques for legi
+
+    #verify if leg is in swing or stance phase
+    if np.sin(curr_theta[i]) > 0:  # Swing phase
+          if not is_swing[i]:  # Transition from stance to swing --> was not in stance phase at previous time step
+              # End stance phase, save duration
+              stance_durations[i].append(phase_duration[i])
+              phase_duration[i] = 0.0
+              is_swing[i] = True
+          phase_duration[i] += TIME_STEP  # Accumulate swing time
+    else:  # Stance phase
+          if is_swing[i]:  # Transition from swing to stance
+              # End swing phase, save duration
+              swing_durations[i].append(phase_duration[i])
+              phase_duration[i] = 0.0
+              is_swing[i] = False
+          phase_duration[i] += TIME_STEP  # Accumulate stance time
+
+    # initialize torques for leg
     tau = np.zeros(3)
     # get desired foot i pos (xi, yi, zi) in leg frame
     leg_xyz = np.array([xs[i],sideSign[i] * foot_y,zs[i]])
@@ -147,13 +171,24 @@ for j in range(TEST_STEPS):
 
   # [TODO] save any CPG or robot states
 
+#PROCESSING SIMULATION DATA
 final_x = env.robot.GetBasePosition()
 total_energy = np.sum(energy)  # Sum all energy used across joints
 distance_traveled = np.sqrt((final_x[0] - initial_x[0])**2 + (final_x[1] - initial_x[1])**2+ (final_x[2] - initial_x[2])**2)  # Euclidean distance traveled
 cot = total_energy / (np.sum(env.robot._total_mass_urdf) * 9.81 * distance_traveled)  # Cost of Transport
+average_velocity = np.mean(robot_base_velocities) # Average velocity
+
+for i in range(4):
+    avg_swing_time = np.mean(swing_durations[i]) if swing_durations[i] else 0
+    avg_stance_time = np.mean(stance_durations[i]) if stance_durations[i] else 0
+    tot_swing_time = np.sum(swing_durations[i]) if swing_durations[i] else 0
+    tot_stance_time = np.sum(stance_durations[i]) if stance_durations[i] else 0
+    print(f"Leg {i+1}: Average Swing Time = {avg_swing_time:.3f}s, Average Stance Time = {avg_stance_time:.3f}s")
+    print(f"Leg {i+1}: Average duty cycle =  {tot_stance_time/tot_swing_time:.3f}s")
 
 print("Distance Traveled:", distance_traveled)
 print("Cost of Transport (COT):", cot)
+print("Average Velocity:", average_velocity)
 
 
 
