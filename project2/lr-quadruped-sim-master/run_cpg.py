@@ -179,29 +179,29 @@ fig.suptitle("CPG States (r, θ, ˙r, ˙θ) for Trot Gait", fontsize=16)
 
 # Loop through each leg and plot the CPG states
 for i in range(4):
-    # Plot r
+    # Plot ⁠ r ⁠
     axs[0, i].plot(t_cycle, r[:cycle_steps, i], color=colors[0], label="r", linewidth=line_width)
     axs[0, i].set_title(f"Leg {i+1} - r")
     axs[0, i].legend()
 
-    # Plot θ
+    # Plot ⁠ θ ⁠
     axs[1, i].plot(t_cycle, theta[:cycle_steps, i], color=colors[1], label="θ", linewidth=line_width)
     axs[1, i].set_title(f"Leg {i+1} - θ")
     axs[1, i].legend()
 
-    # Plot ˙r
+    # Plot ⁠ ˙r ⁠
     axs[2, i].plot(t_cycle, r_dot[:cycle_steps, i], color=colors[2], label="˙r", linewidth=line_width)
     axs[2, i].set_title(f"Leg {i+1} - ˙r")
     axs[2, i].legend()
 
-    # Plot ˙θ
+    # Plot ⁠ ˙θ ⁠
     axs[3, i].plot(t_cycle, theta_dot[:cycle_steps, i], color=colors[3], label="˙θ", linewidth=line_width)
     axs[3, i].set_title(f"Leg {i+1} - ˙θ")
     axs[3, i].legend()
 
 # Adjust layout and display
 plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-plt.savefig('CPG_States_Leg1.png')
+plt.savefig('states_CPG_Leg1.png')
 plt.show()
 
 # Plot for desired vs actual foot positions and joint angles for leg 1
@@ -213,42 +213,63 @@ desired_color = 'tab:blue'
 actual_color = 'tab:orange'
 
 desired_foot_positions = np.array(desired_foot_position)
+#print(desired_foot_position[0])
 actual_foot_positions = np.array(actual_foot_position)
 desired_joint_angles = np.array(desired_joint_angle)
 actual_joint_angles = np.array(actual_joint_angle)
 
-# Foot positions for leg 1 (x, y, z)
-axs[0, 0].plot(t, desired_foot_positions[:, 0], color=desired_color, label="Desired X", linewidth=line_width)
-axs[0, 0].plot(t, actual_foot_positions[:, 0], color=actual_color, linestyle='--', label="Actual X", linewidth=line_width)
-axs[0, 0].set_title("Foot Position X (Leg 1)")
-axs[0, 0].legend()
+# Extract x, y, z positions for leg 0
+x_positions_leg0 = [pos[0] for pos in desired_foot_positions]
+y_positions_leg0 = [pos[1] for pos in desired_foot_positions]
+z_positions_leg0 = [pos[2] for pos in desired_foot_positions]
 
-axs[0, 1].plot(t, desired_foot_positions[:, 1], color=desired_color, label="Desired Y", linewidth=line_width)
-axs[0, 1].plot(t, actual_foot_positions[:, 1], color=actual_color, linestyle='--', label="Actual Y", linewidth=line_width)
-axs[0, 1].set_title("Foot Position Y (Leg 1)")
-axs[0, 1].legend()
+# Extract x, y, z positions for leg 0 (actual positions)
+x_positions_leg0_actual = [pos[0] for pos in actual_foot_positions]
+y_positions_leg0_actual = [pos[1] for pos in actual_foot_positions]
+z_positions_leg0_actual = [pos[2] for pos in actual_foot_positions]
 
-axs[0, 2].plot(t, desired_foot_positions[:, 2], color=desired_color, label="Desired Z", linewidth=line_width)
-axs[0, 2].plot(t, actual_foot_positions[:, 2], color=actual_color, linestyle='--', label="Actual Z", linewidth=line_width)
-axs[0, 2].set_title("Foot Position Z (Leg 1)")
-axs[0, 2].legend()
+# Plotting for leg 0's actual x, y, z positions alongside the desired ones
+axs[0, 0].plot(t, x_positions_leg0_actual, color=actual_color, linestyle='--', label="Actual X (Leg 0)", linewidth=line_width)
+axs[0, 1].plot(t, y_positions_leg0_actual, color=actual_color, linestyle='--', label="Actual Y (Leg 0)", linewidth=line_width)
+axs[0, 2].plot(t, z_positions_leg0_actual, color=actual_color, linestyle='--', label="Actual Z (Leg 0)", linewidth=line_width)
+
+# Titles and legends for each subplot
+axs[0, 0].set_title("Foot Position X (Leg 0)")
+axs[0, 1].set_title("Foot Position Y (Leg 0)")
+axs[0, 2].set_title("Foot Position Z (Leg 0)")
+
+# Plotting for leg 0's x, y, z positions
+axs[0, 0].plot(t, x_positions_leg0, color=desired_color, label="Desired X (Leg 0)", linewidth=line_width)
+axs[0, 1].plot(t, y_positions_leg0, color=desired_color, label="Desired Y (Leg 0)", linewidth=line_width)
+axs[0, 2].plot(t, z_positions_leg0, color=desired_color, label="Desired Z (Leg 0)", linewidth=line_width)
+
+
+joint1_leg0 = [pos[0] for pos in desired_joint_angles]
+joint2_leg0 = [pos[1] for pos in desired_joint_angles]
+joint3_leg0 = [pos[2] for pos in desired_joint_angles]
+
+joint1_leg0_actual = [pos[0] for pos in actual_joint_angles]
+joint2_leg0_actual = [pos[1] for pos in actual_joint_angles]
+joint3_leg0_actual = [pos[2] for pos in actual_joint_angles]
+
+axs[1, 0].plot(t, joint1_leg0, color=desired_color, label="Desired Joint 1 (Leg 0)", linewidth=line_width)
+axs[1, 1].plot(t, joint2_leg0, color=desired_color, label="Desired Joint 2 (Leg 0)", linewidth=line_width)
+axs[1, 2].plot(t, joint3_leg0, color=desired_color, label="Desired Joint 3 (Leg 0)", linewidth=line_width)
+
+axs[1, 0].plot(t, joint1_leg0_actual, color=actual_color, linestyle='--', label="Actual Joint 1 (Leg 0)", linewidth=line_width)
+axs[1, 1].plot(t, joint2_leg0_actual, color=actual_color, linestyle='--', label="Actual Joint 2 (Leg 0)", linewidth=line_width)
+axs[1, 2].plot(t, joint3_leg0_actual, color=actual_color, linestyle='--', label="Actual Joint 3 (Leg 0)", linewidth=line_width)
 
 # Joint angles for leg 1
-axs[1, 0].plot(t, desired_joint_angles[:, 0], color=desired_color, label="Desired Angle 1", linewidth=line_width)
-axs[1, 0].plot(t, actual_joint_angles[:, 0], color=actual_color, linestyle='--', label="Actual Angle 1", linewidth=line_width)
 axs[1, 0].set_title("Joint Angle 1 (Leg 1)")
 axs[1, 0].legend()
 
-axs[1, 1].plot(t, desired_joint_angles[:, 1], color=desired_color, label="Desired Angle 2", linewidth=line_width)
-axs[1, 1].plot(t, actual_joint_angles[:, 1], color=actual_color, linestyle='--', label="Actual Angle 2", linewidth=line_width)
 axs[1, 1].set_title("Joint Angle 2 (Leg 1)")
 axs[1, 1].legend()
 
-axs[1, 2].plot(t, desired_joint_angles[:, 2], color=desired_color, label="Desired Angle 3", linewidth=line_width)
-axs[1, 2].plot(t, actual_joint_angles[:, 2], color=actual_color, linestyle='--', label="Actual Angle 3", linewidth=line_width)
 axs[1, 2].set_title("Joint Angle 3 (Leg 1)")
 axs[1, 2].legend()
 
 plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-plt.savefig('desired_vs_actual_Leg1.png')
+plt.savefig('Foot_Joint_Leg1.png')
 plt.show()
