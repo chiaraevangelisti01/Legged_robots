@@ -55,17 +55,21 @@ from utils.utils import plot_results
 from utils.file_utils import get_latest_model, load_all_results
 
 
-LEARNING_ALG = "SAC"
+LEARNING_ALG = "PPO"
 interm_dir = "./logs/intermediate_models/"
 # path to saved models, i.e. interm_dir + '102824115106'
-log_dir = interm_dir + '102824115106'
+log_dir = interm_dir + '121624100040'
 
 # initialize env configs (render at test time)
 # check ideal conditions, as well as robustness to UNSEEN noise during training
 env_config = {}
+env_config['motor_control_mode'] = "CPG"
+env_config['task_env'] = "FWD_LOCOMOTION"
+env_config['observation_space_mode'] = "LR_COURSE_MEDIUM"
+env_config['terrain'] = "STAIRS"
 env_config['render'] = True
-env_config['record_video'] = False
-env_config['add_noise'] = False 
+env_config['record_video'] = True
+env_config['add_noise'] = True 
 # env_config['competition_env'] = True
 
 # get latest model and normalization stats, and plot 
@@ -94,19 +98,95 @@ obs = env.reset()
 episode_reward = 0
 
 # [TODO] initialize arrays to save data from simulation 
-#
+base_velocities = []  # List to store base velocity data
+env_base_velocities = []  # List to store base velocity data from env
+timestamps = []  
+i_prev = 0
+swing_durations = [[] for _ in range(4)]
+stance_durations = [[] for _ in range(4)]
+is_swing = [False] * 4  # Track if each leg is in swing phase
+phase_duration = [0.0] * 4  # Accumulate time in the current phase for each leg
+total_distance = 0.0
+energy = 0.0
 
-for i in range(2000):
+for j in range(7000):
     action, _states = model.predict(obs,deterministic=False) # sample at test time? ([TODO]: test)
     obs, rewards, dones, info = env.step(action)
     episode_reward += rewards
+
+    curr_theta = env.envs[0].env._cpg.get_theta()
+    tau = env.envs[0].env.ScaleActionToCPGStateModulations(action[0])
+    dq = env.envs[0].env.robot.GetMotorVelocities()
+    energy += np.sum(np.abs(dq) * tau) * env.envs[0].env._time_step
+
+    for i in range(4):
+
+        #verify if leg is in swing or stance phase
+        if np.sin(curr_theta[i]) > 0:  # Swing phase
+            if not is_swing[i]:  # Transition from stance to swing --> was not in stance phase at previous time step
+                # End stance phase, save duration
+                stance_durations[i].append(phase_duration[i])
+                phase_duration[i] = 0.0
+                is_swing[i] = True
+            phase_duration[i] += env.envs[0].env._time_step # Accumulate swing time
+        else:  # Stance phase
+            if is_swing[i]:  # Transition from swing to stance
+                # End swing phase, save duration
+                swing_durations[i].append(phase_duration[i])
+                phase_duration[i] = 0.0
+                is_swing[i] = False
+            phase_duration[i] += env.envs[0].env._time_step  # Accumulate stance time
+
+       
+
     if dones:
         print('episode_reward', episode_reward)
         print('Final base position', info[0]['base_pos'])
+        print('Steps until failure', j-i_prev)
+        i_prev = j
         episode_reward = 0
+        env_base_velocities = []
+        base_velocities.append(env_base_velocities)
+        final_pos = env.envs[0].env.robot.GetBasePosition()
+        distance = np.linalg.norm(np.array(final_pos))
+        total_distance+=distance
+
 
     # [TODO] save data from current robot states for plots 
     # To get base position, for example: env.envs[0].env.robot.GetBasePosition() 
-    #
+    base_velocity = (env.envs[0].env.robot.GetBaseLinearVelocity()[0]) 
+    env_base_velocities.append(base_velocity)
+   
+    timestamps.append(i)
     
 # [TODO] make plots:
+#You will have simulated multiple times, select an i index to plot data from that simulation
+all_velocities = np.concatenate([np.array(vel) for vel in base_velocities])
+average_velocity = np.mean(all_velocities)
+print("Average base velocity: ", average_velocity)
+#repeat the average velocity for the length of the velocities array
+
+# average_velocities = np.repeat(average_velocity, len(velocities))
+
+# plt.figure()
+# plt.plot(velocities, label="X-velocity", color='orange', linewidth=1.5) 
+# plt.plot(average_velocities, label="Average X-velocity", color='red', linewidth=1.5) 
+# plt.xlabel('Timestep')
+# plt.ylabel('Base Velocity (m/s)')
+# plt.title('Base Velocity Over Time')
+# plt.legend()
+# plt.show()
+
+cot = energy / (np.sum(env.envs[0].robot._total_mass_urdf) * 9.81 * total_distance)  # Cost of Transport
+print("Cost of Transport (COT):", cot)
+
+for i in range(4):
+    avg_swing_time = np.mean(swing_durations[i]) if swing_durations[i] else 0
+    avg_stance_time = np.mean(stance_durations[i]) if stance_durations[i] else 0
+    tot_swing_time = np.sum(swing_durations[i]) if swing_durations[i] else 0
+    tot_stance_time = np.sum(stance_durations[i]) if stance_durations[i] else 0
+    print(f"Leg {i+1}: Average Swing Time = {avg_swing_time:.3f}s, Average Stance Time = {avg_stance_time:.3f}s")
+    print(f"Leg {i+1}: Average duty cycle =  {tot_stance_time/(tot_swing_time+tot_stance_time):.3f}s")
+
+
+

@@ -1,0 +1,9 @@
+Training Parameters
+====================
+LEARNING_ALG: PPO
+USE_GPU: False
+NUM_ENVS: 30
+Environment Configs: {'motor_control_mode': 'CPG', 'task_env': 'LR_COURSE_TASK', 'observation_space_mode': 'LR_COURSE_MEDIUM'}
+PPO Config: {'gamma': 0.99, 'n_steps': 273, 'ent_coef': 0.01, 'learning_rate': <function <lambda> at 0x000001F2F3A13D90>, 'vf_coef': 0.5, 'max_grad_norm': 0.5, 'gae_lambda': 0.95, 'batch_size': 256, 'n_epochs': 5, 'clip_range': 0.2, 'clip_range_vf': 1, 'verbose': 1, 'tensorboard_log': './logs/tensorboard/', '_init_setup_model': True, 'policy_kwargs': {'net_arch': [512, 256, 128], 'activation_fn': <class 'torch.nn.modules.activation.ELU'>}, 'device': 'cpu'}
+Policy Network Architecture: [512, 256, 128]
+Save Path: ./logs/intermediate_models/120824084040/

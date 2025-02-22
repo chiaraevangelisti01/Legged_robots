@@ -56,7 +56,7 @@ class HopfNetwork():
                 coupling_strength=1,     # coefficient to multiply coupling matrix
                 couple=True,             # whether oscillators should be coupled
                 time_step=0.001,         # time step 
-                ground_clearance=0.07,   # foot swing height 
+                ground_clearance=0.14,   # foot swing height 
                 ground_penetration=0.01, # foot stance penetration into ground 
                 robot_height=0.3,        # in nominal case (standing) 
                 des_step_len=0.05,       # desired step length 

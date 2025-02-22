@@ -271,7 +271,9 @@ class Quadruped(object):
           footIndex = self._foot_link_ids.index(c[3])
         feetNormalForces[footIndex] += c[9] # if multiple contact locations
         feetInContactBool[footIndex] = 1
-    return numValidContacts, numInvalidContacts, feetNormalForces, feetInContactBool
+    #return numValidContacts, numInvalidContacts, feetNormalForces, feetInContactBool
+    return np.concatenate((np.array([numValidContacts]), np.array([numInvalidContacts]), np.array(feetNormalForces), np.array(feetInContactBool)))
+
 
   ######################################################################################
   # INPUTS: set torques, ApplyAction, etc.
